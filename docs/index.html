@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SonicFlow — Per-app volume for macOS. Finally.</title>
+<meta name="description" content="A free, open-source macOS menu bar app for per-app volume control. Music, Zoom, Chrome — control each one independently. Auto-ducks media when someone speaks. Under 1% CPU.">
+
+<!-- Open Graph -->
+<meta property="og:title" content="SonicFlow — Per-app volume for macOS">
+<meta property="og:description" content="Free, open-source per-app volume control for macOS. Music, Zoom, Chrome, anything — independent sliders + auto-ducking. Under 1% CPU.">
+<meta property="og:image" content="og-card.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" type="image/png" href="favicon.png">
+
+<style>
+  :root {
+    --cyan:    #1FE0FF;
+    --blue:    #1A4DFF;
+    --violet:  #7A1FFF;
+    --magenta: #C211FF;
+    --ink:     #0B0F1F;
+    --ink-2:   #16194D;
+    --mist:    #F5F8FF;
+    --muted:   #8A95B5;
+    --muted-2: #5A6280;
+    --line:    rgba(255,255,255,0.08);
+    --card:    #181C2F;
+    --warning: #FF9F0A;
+    --success: #34C759;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--ink);
+    color: var(--mist);
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Backdrop glow */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 30% 0%, rgba(26,77,255,0.25), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 30%, rgba(194,17,255,0.20), transparent),
+      linear-gradient(180deg, var(--ink), var(--ink-2) 60%, var(--ink));
+    z-index: -1;
+  }
+
+  .container { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+
+  /* Nav */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    background: rgba(11,15,31,0.72);
+    border-bottom: 1px solid var(--line);
+  }
+  nav .inner {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--cyan), var(--blue) 35%, var(--violet) 75%, var(--magenta));
+    display: grid; place-items: center;
+  }
+  .brand .mark svg { display: block; }
+  .brand-text { font-weight: 700; font-size: 17px; letter-spacing: -0.3px; }
+  nav ul { display: flex; gap: 28px; list-style: none; }
+  nav ul a {
+    color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500;
+    transition: color .15s;
+  }
+  nav ul a:hover { color: var(--mist); }
+  nav .cta {
+    background: var(--mist); color: var(--ink);
+    padding: 9px 18px; border-radius: 10px;
+    font-size: 14px; font-weight: 600; text-decoration: none;
+    transition: transform .15s;
+  }
+  nav .cta:hover { transform: translateY(-1px); }
+
+  /* Hero */
+  .hero {
+    padding: 110px 0 80px;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 80px;
+    align-items: center;
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(31,224,255,0.10);
+    color: var(--cyan);
+    padding: 7px 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+    margin-bottom: 24px;
+    border: 1px solid rgba(31,224,255,0.20);
+  }
+  .eyebrow .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 12px var(--success);
+  }
+  h1 {
+    font-family: -apple-system, "SF Pro Display", sans-serif;
+    font-size: clamp(48px, 6.4vw, 84px);
+    font-weight: 800;
+    line-height: 1.02;
+    letter-spacing: -3px;
+    margin-bottom: 28px;
+  }
+  h1 .accent {
+    background: linear-gradient(135deg, var(--cyan), var(--blue) 80%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p.lede {
+    font-size: 22px; line-height: 1.5;
+    color: var(--muted);
+    margin-bottom: 36px;
+    max-width: 540px;
+  }
+  .hero p.lede strong { color: var(--mist); font-weight: 600; }
+  .cta-row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 16px 26px;
+    border-radius: 14px;
+    font-size: 16px; font-weight: 600;
+    text-decoration: none;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .btn-primary {
+    background: var(--mist);
+    color: var(--ink);
+    box-shadow: 0 12px 36px rgba(31,224,255,0.18);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 44px rgba(31,224,255,0.32); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--mist);
+    border: 1.5px solid rgba(255,255,255,0.18);
+  }
+  .btn-secondary:hover { border-color: rgba(255,255,255,0.4); }
+  .meta-line {
+    margin-top: 22px; color: var(--muted-2); font-size: 14px;
+  }
+  .meta-line code {
+    background: rgba(255,255,255,0.06);
+    padding: 3px 8px; border-radius: 6px;
+    font-family: "SF Mono", ui-monospace, monospace;
+    font-size: 13px; color: var(--cyan);
+  }
+
+  /* Hero panel mock */
+  .panel-mock {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 22px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+    width: 420px;
+    margin-left: auto;
+  }
+  .panel-header {
+    display: flex; align-items: center; gap: 12px;
+    padding-bottom: 14px; border-bottom: 1px solid var(--line);
+  }
+  .panel-icon {
+    width: 44px; height: 44px; border-radius: 11px;
+    background: linear-gradient(135deg, var(--cyan), var(--blue) 35%, var(--violet) 75%, var(--magenta));
+    display: grid; place-items: center;
+  }
+  .panel-icon-bars {
+    display: flex; gap: 3px; align-items: center; height: 26px;
+  }
+  .panel-icon-bars span {
+    width: 3px; background: white; border-radius: 2px;
+  }
+  .panel-icon-bars span:nth-child(1) { height: 8px; }
+  .panel-icon-bars span:nth-child(2) { height: 14px; }
+  .panel-icon-bars span:nth-child(3) { height: 22px; }
+  .panel-icon-bars span:nth-child(4) { height: 18px; }
+  .panel-icon-bars span:nth-child(5) { height: 10px; }
+  .panel-title { font-weight: 700; font-size: 16px; }
+  .panel-sub { font-size: 12px; color: var(--muted); }
+  .panel-section { padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .panel-section:last-child { border: none; padding-bottom: 0; }
+  .label-row {
+    display: flex; justify-content: space-between; font-size: 12px;
+    color: var(--muted); margin-bottom: 8px;
+    text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+  }
+  .label-row .pct { color: var(--mist); }
+  .slider {
+    height: 24px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 999px;
+    position: relative;
+    overflow: hidden;
+  }
+  .slider .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan), var(--blue));
+    border-radius: 999px;
+    position: relative;
+  }
+  .slider .thumb {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; border-radius: 50%;
+    background: white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    right: -2px;
+  }
+  .ducking {
+    margin: 8px 0; padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255,159,10,0.12);
+    color: var(--warning);
+    font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .app-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+  .app-row .marker {
+    width: 3px; height: 18px; border-radius: 1.5px;
+    background: var(--success);
+  }
+  .app-row .ico {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: grid; place-items: center;
+    font-weight: 700; color: white; font-size: 14px;
+  }
+  .ico.music { background: linear-gradient(135deg, #FF2D55, #FF6482); }
+  .ico.zoom { background: #2D8CFF; font-size: 10px; }
+  .app-row .info { flex: 1; }
+  .app-row .name {
+    font-size: 14px; font-weight: 600; margin-bottom: 6px;
+    display: flex; gap: 6px; align-items: center;
+  }
+  .app-row .name .comm-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--warning); box-shadow: 0 0 8px var(--warning);
+  }
+  .app-row .name .pct {
+    margin-left: auto; color: var(--mist); font-weight: 600;
+  }
+
+  /* Sections — combined selector beats `.container`'s shorthand padding,
+     which was nuking the vertical breathing room and making h2 sit flush
+     to the previous section's bottom edge. */
+  section.container {
+    padding-top: 140px;
+    padding-bottom: 100px;
+  }
+  section h2 {
+    font-family: "SF Pro Display", sans-serif;
+    font-size: clamp(32px, 4vw, 52px);
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1.05;
+    margin-bottom: 22px;
+  }
+  section .section-sub {
+    font-size: 20px; color: var(--muted);
+    max-width: 640px; margin-bottom: 64px;
+  }
+  section h2 .accent {
+    background: linear-gradient(135deg, var(--cyan), var(--violet));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  /* Features grid */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+  }
+  .feature {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    padding: 28px 24px;
+    border-radius: 16px;
+    transition: transform .2s, border-color .2s;
+  }
+  .feature:hover {
+    transform: translateY(-4px);
+    border-color: rgba(31,224,255,0.30);
+  }
+  .feature .emoji {
+    font-size: 28px; margin-bottom: 14px; display: block;
+  }
+  .feature h3 {
+    font-size: 19px; font-weight: 700;
+    margin-bottom: 8px; letter-spacing: -0.5px;
+  }
+  .feature p { color: var(--muted); font-size: 15px; }
+
+  /* How it works */
+  .how {
+    display: grid; gap: 20px;
+  }
+  .step {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 28px;
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 28px;
+    align-items: center;
+  }
+  .step .num {
+    font-family: "SF Pro Display", sans-serif;
+    font-size: 60px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--cyan), var(--violet));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    line-height: 1; letter-spacing: -3px;
+  }
+  .step h3 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .step p { color: var(--muted); }
+  .step code {
+    font-family: "SF Mono", monospace;
+    background: rgba(255,255,255,0.06);
+    padding: 2px 6px; border-radius: 4px; font-size: 13px; color: var(--cyan);
+  }
+
+  /* Install */
+  .install-block {
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 36px;
+    font-family: "SF Mono", ui-monospace, monospace;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--mist);
+    overflow-x: auto;
+  }
+  .install-block .comment { color: var(--muted-2); }
+  .install-block .prompt { color: var(--cyan); user-select: none; }
+
+  /* FAQ */
+  .faq {
+    max-width: 820px;
+  }
+  details {
+    border-bottom: 1px solid var(--line);
+    padding: 20px 0;
+    cursor: pointer;
+  }
+  details summary {
+    font-size: 18px; font-weight: 600;
+    list-style: none;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after {
+    content: '+';
+    color: var(--cyan);
+    font-size: 24px; font-weight: 300;
+    transition: transform .2s;
+  }
+  details[open] summary::after { transform: rotate(45deg); }
+  details p {
+    margin-top: 14px; color: var(--muted); font-size: 16px;
+  }
+  details p code {
+    background: rgba(255,255,255,0.06);
+    padding: 2px 6px; border-radius: 4px;
+    font-family: "SF Mono", monospace; font-size: 14px; color: var(--cyan);
+  }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 60px 0 40px;
+    margin-top: 40px;
+    color: var(--muted);
+  }
+  footer .inner {
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 20px;
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--mist); }
+  footer .links { display: flex; gap: 24px; font-size: 14px; }
+  footer .copyright { font-size: 13px; color: var(--muted-2); }
+
+  /* Mobile */
+  @media (max-width: 880px) {
+    .hero { grid-template-columns: 1fr; padding: 80px 0 40px; gap: 50px; }
+    .panel-mock { margin: 0 auto; max-width: 380px; width: 100%; }
+    nav ul { display: none; }
+    section.container { padding-top: 90px; padding-bottom: 70px; }
+    .step { grid-template-columns: 1fr; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="container inner">
+    <div class="brand">
+      <div class="mark">
+        <div class="panel-icon-bars" style="height:20px">
+          <span style="height:6px"></span>
+          <span style="height:11px"></span>
+          <span style="height:17px"></span>
+          <span style="height:14px"></span>
+          <span style="height:8px"></span>
+        </div>
+      </div>
+      <span class="brand-text">SonicFlow</span>
+    </div>
+    <ul>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="https://github.com/altuzar/sonicflow">GitHub</a></li>
+    </ul>
+    <a class="cta" href="#install">Download free</a>
+  </div>
+</nav>
+
+<header class="hero container">
+  <div>
+    <div class="eyebrow"><span class="dot"></span> Now live · v0.1 · macOS 14.2+</div>
+    <h1>Per-app volume<br>for macOS.<br><span class="accent">Finally.</span></h1>
+    <p class="lede">
+      Independent volume sliders for <strong>every app producing audio</strong>.
+      Music, Zoom, Chrome — drive them separately from one beautiful panel.
+      Auto-ducks media when someone speaks on a call.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#install">⬇ Download v0.1</a>
+      <a class="btn btn-secondary" href="https://github.com/altuzar/sonicflow">View on GitHub →</a>
+    </div>
+    <p class="meta-line">Free · MIT licensed · <code>&lt; 1%</code> CPU · No telemetry</p>
+  </div>
+
+  <!-- Panel mockup -->
+  <div class="panel-mock">
+    <div class="panel-header">
+      <div class="panel-icon">
+        <div class="panel-icon-bars">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div>
+        <div class="panel-title">SonicFlow</div>
+        <div class="panel-sub">2 apps playing</div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="label-row"><span>Master</span><span class="pct">85%</span></div>
+      <div class="slider">
+        <div class="fill" style="width:85%"><div class="thumb"></div></div>
+      </div>
+      <div class="ducking">⏷ Ducking active — Music lowered 50%</div>
+    </div>
+
+    <div class="panel-section">
+      <div class="app-row">
+        <div class="marker"></div>
+        <div class="ico music">♪</div>
+        <div class="info">
+          <div class="name">Music <span class="pct">62%↓</span></div>
+          <div class="slider"><div class="fill" style="width:62%; background: linear-gradient(90deg, var(--cyan), var(--blue));"><div class="thumb"></div></div></div>
+        </div>
+      </div>
+      <div class="app-row">
+        <div class="marker"></div>
+        <div class="ico zoom">zoom</div>
+        <div class="info">
+          <div class="name">zoom.us <span class="comm-dot"></span> <span class="pct">95%</span></div>
+          <div class="slider"><div class="fill" style="width:95%; background: linear-gradient(90deg, var(--violet), var(--magenta));"><div class="thumb"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="features" class="container">
+  <h2>Volume for <span class="accent">every app</span>.<br>Independent. Fast. Free.</h2>
+  <p class="section-sub">Built with CoreAudio Process Taps on macOS 14.2+. Audio routes through a lock-free realtime IOProc — gain changes apply in under 10 ms.</p>
+  <div class="features">
+    <div class="feature">
+      <span class="emoji">🎚️</span>
+      <h3>Per-app sliders</h3>
+      <p>Every app currently making sound gets its own slider. Drag to attenuate in real time.</p>
+    </div>
+    <div class="feature">
+      <span class="emoji">🔇</span>
+      <h3>One-click mute</h3>
+      <p>Tap any app's icon to mute it instantly. A red badge tells you which apps are silenced.</p>
+    </div>
+    <div class="feature">
+      <span class="emoji">📢</span>
+      <h3>Auto-ducking</h3>
+      <p>When Zoom, Teams, or Slack speaks, your music quiets automatically. Adjustable amount.</p>
+    </div>
+    <div class="feature">
+      <span class="emoji">🎛️</span>
+      <h3>Master + system sync</h3>
+      <p>The master slider drives macOS system volume — and follows F11/F12 keyboard keys.</p>
+    </div>
+    <div class="feature">
+      <span class="emoji">⚡</span>
+      <h3>Under 1% CPU</h3>
+      <p>Realtime DSP done right. Lock-free SPSC ring buffer, allocation-free IOProcs.</p>
+    </div>
+    <div class="feature">
+      <span class="emoji">🪟</span>
+      <h3>Menu bar only</h3>
+      <p>No Dock icon, no window on launch. Just a waveform glyph in your menu bar.</p>
+    </div>
+    <div class="feature">
+      <span class="emoji">🎤</span>
+      <h3>No purple mic dot</h3>
+      <p>SonicFlow never requests microphone permission. Process Taps capture output, not input.</p>
+    </div>
+    <div class="feature">
+      <span class="emoji">📖</span>
+      <h3>Open source</h3>
+      <p>MIT licensed. Inspect the IOProc, file an issue, ship a PR. Zero telemetry.</p>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="container">
+  <h2>How it actually works</h2>
+  <p class="section-sub">No magic. Real CoreAudio APIs. Real Swift code you can read.</p>
+  <div class="how">
+    <div class="step">
+      <div class="num">1</div>
+      <div>
+        <h3>Detect every audio process</h3>
+        <p>SonicFlow watches <code>kAudioHardwarePropertyProcessObjectList</code>. Whenever an app starts producing output, you see it appear in the panel within ~1 second.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">2</div>
+      <div>
+        <h3>Tap each app's audio stream</h3>
+        <p>For each active app, SonicFlow creates a <code>CATapDescription</code> with <code>CATapMutedWhenTapped</code> — the app's normal output is silenced; its audio gets routed to our private aggregate device.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">3</div>
+      <div>
+        <h3>Apply gain in a realtime IOProc</h3>
+        <p>A capture IOProc reads each tap's input, multiplies by the per-app gain (the slider value), mixes to stereo, writes to a lock-free ring buffer. Zero allocation, zero locks on the audio thread.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">4</div>
+      <div>
+        <h3>Play back through your speakers</h3>
+        <p>A second IOProc on your real default output device reads from the ring buffer and adds the gained samples to the output — mixed with any non-tapped audio that goes through the system mixer normally.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install" class="container">
+  <h2>Install in 30 seconds</h2>
+  <p class="section-sub">Requires macOS 14.2 or newer. Apple Silicon and Intel.</p>
+  <div class="install-block">
+<span class="comment"># Option A — download the .app bundle</span>
+<span class="prompt">$</span> curl -L -o SonicFlow.zip \
+    https://github.com/altuzar/sonicflow/releases/latest/download/SonicFlow.zip
+<span class="prompt">$</span> unzip SonicFlow.zip
+<span class="prompt">$</span> mv SonicFlow.app /Applications/
+<span class="prompt">$</span> open /Applications/SonicFlow.app
+
+<span class="comment"># Option B — build from source</span>
+<span class="prompt">$</span> git clone https://github.com/altuzar/sonicflow.git
+<span class="prompt">$</span> cd sonicflow
+<span class="prompt">$</span> make sign
+<span class="prompt">$</span> open build/SonicFlow.app
+  </div>
+</section>
+
+<section id="faq" class="container">
+  <h2>FAQ</h2>
+  <div class="faq">
+    <details open>
+      <summary>Does it trigger the macOS recording indicator?</summary>
+      <p>No purple dot — that's microphone access, which SonicFlow never requests. Process Taps are output-capture, not input. On macOS 14.4+ you may briefly see the orange audio-capture indicator, same as SoundSource / Audio Hijack.</p>
+    </details>
+    <details>
+      <summary>Why isn't this just built into macOS?</summary>
+      <p>Apple ships per-app volume on iOS but not macOS. There's no public macOS UI for it. SonicFlow uses the same low-level APIs Apple gives third-party audio devs and builds the UI Apple didn't.</p>
+    </details>
+    <details>
+      <summary>Does it work with Bluetooth headphones / AirPods?</summary>
+      <p>Yes. The playback IOProc binds to whatever your current default output device is. Headphone hot-swap support is on the roadmap — for now, restart the app after changing output.</p>
+    </details>
+    <details>
+      <summary>What about audio quality?</summary>
+      <p>Lossless — gain is a single floating-point multiply per sample, with soft-clipping to prevent overshoot. Bit-perfect for non-tapped apps (they go through the system mixer unchanged).</p>
+    </details>
+    <details>
+      <summary>How is this different from SoundSource?</summary>
+      <p>SoundSource is a polished commercial product ($39). SonicFlow is free, open-source, and focused on the core "per-app volume + ducking" use case. If you need EQ, audio routing, or recording, buy SoundSource.</p>
+    </details>
+    <details>
+      <summary>Will it slow down my Mac?</summary>
+      <p>Idle CPU is 0.0%. With taps active, ~1% on M-series. The ring buffer is lock-free SPSC, the IOProcs are allocation-free.</p>
+    </details>
+    <details>
+      <summary>Where's the code?</summary>
+      <p>All ~2,400 lines of Swift live at <a href="https://github.com/altuzar/sonicflow">github.com/altuzar/sonicflow</a>. MIT licensed. Read it, fork it, ship PRs.</p>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <div class="container inner">
+    <div class="brand">
+      <div class="mark">
+        <div class="panel-icon-bars" style="height:18px">
+          <span style="height:5px"></span>
+          <span style="height:10px"></span>
+          <span style="height:15px"></span>
+          <span style="height:12px"></span>
+          <span style="height:7px"></span>
+        </div>
+      </div>
+      <span class="brand-text">SonicFlow</span>
+    </div>
+    <div class="links">
+      <a href="https://github.com/altuzar/sonicflow">GitHub</a>
+      <a href="https://github.com/altuzar/sonicflow/blob/main/ROADMAP.md">Roadmap</a>
+      <a href="https://github.com/altuzar/sonicflow/issues">Issues</a>
+      <a href="https://github.com/altuzar/sonicflow/blob/main/LICENSE">License</a>
+    </div>
+    <div class="copyright">MIT · Made with audio waveforms · 2026</div>
+  </div>
+</footer>
+
+</body>
+</html>

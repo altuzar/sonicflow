@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Cyan → blue → magenta gradient (premium audio brand palette) -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#1FE0FF"/>
+      <stop offset="35%"  stop-color="#1A4DFF"/>
+      <stop offset="75%"  stop-color="#7A1FFF"/>
+      <stop offset="100%" stop-color="#C211FF"/>
+    </linearGradient>
+
+    <!-- Top sheen -->
+    <linearGradient id="gloss" x1="50%" y1="0%" x2="50%" y2="55%">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.40"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Bottom shade for depth -->
+    <linearGradient id="bottomShade" x1="50%" y1="55%" x2="50%" y2="100%">
+      <stop offset="0%"   stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.22"/>
+    </linearGradient>
+
+    <!-- Soft white-edge gradient on the wave for liquid look -->
+    <linearGradient id="wave" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%"   stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E1F2FF"/>
+    </linearGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14" result="b1"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <clipPath id="squircle">
+      <rect x="0" y="0" width="1024" height="1024" rx="225" ry="225"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#squircle)">
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+
+    <!-- Soft sonar pulse rings — keep the "Flow" mood -->
+    <g opacity="0.18" stroke="white" stroke-width="3" fill="none">
+      <circle cx="512" cy="512" r="280"/>
+      <circle cx="512" cy="512" r="370"/>
+    </g>
+
+    <rect width="1024" height="1024" fill="url(#bottomShade)"/>
+
+    <!-- Central waveform — three stacked sound-wave forms.
+         Built as smooth Bezier curves to read at 16x16 down to 1024.
+         Same DNA as SF Symbol "waveform" but re-drawn for maximum legibility.
+
+         Layout: a tall central waveform with two side flanks of decreasing
+         amplitude, mirroring how audio waveforms look in DAWs.
+         Heights: 240 (left), 380 (center), 240 (right).
+         Stroke width: 64 for chunky, friendly silhouette.
+
+         Each "bar" is actually a vertical lozenge centered at y=512. -->
+
+    <!-- Six rounded vertical capsules at varying heights — reads as a sound
+         waveform / EQ peak silhouette. Heights peak in the middle (=loudest). -->
+    <g filter="url(#glow)" fill="url(#wave)">
+      <!-- Far-left -->
+      <rect x="246" y="442" width="64" height="140" rx="32" ry="32"/>
+      <!-- Inner-left -->
+      <rect x="346" y="384" width="64" height="256" rx="32" ry="32"/>
+      <!-- Center (tallest) -->
+      <rect x="446" y="304" width="64" height="416" rx="32" ry="32"/>
+      <!-- Inner-right -->
+      <rect x="546" y="336" width="64" height="352" rx="32" ry="32"/>
+      <!-- Outer-right -->
+      <rect x="646" y="408" width="64" height="208" rx="32" ry="32"/>
+      <!-- Far-right -->
+      <rect x="746" y="460" width="64" height="104" rx="32" ry="32"/>
+    </g>
+
+    <!-- Top glossy highlight -->
+    <rect width="1024" height="1024" fill="url(#gloss)"/>
+  </g>
+
+  <!-- Outer rim for definition -->
+  <rect x="1" y="1" width="1022" height="1022" rx="224" ry="224"
+        fill="none" stroke="#000000" stroke-opacity="0.10" stroke-width="2"/>
+</svg>

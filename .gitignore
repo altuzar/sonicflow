@@ -1,0 +1,16 @@
+.DS_Store
+
+# SwiftPM / Xcode build products
+.build/
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdata/
+
+# SwiftPM generated files
+Package.resolved
+
+# Local environment
+.env
+.env.*
+
